@@ -471,6 +471,8 @@ def upload_file():
 
         with state_lock:
             app_state['last_uploaded_name'] = file.filename
+        # 同步更新全局状态，避免前端下一轮轮询被旧状态覆盖
+        _set_status(f'文件已上传: {file.filename}', 'success')
 
         return jsonify({
             'success': True,
