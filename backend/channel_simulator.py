@@ -293,3 +293,5 @@ def simulate_channel_performance(channel, test_data_size: int = 10000,
         'total_bits': sum([r['total_bits_transmitted'] for r in results]),
         'total_errors': sum([r['total_errors'] for r in results])
     }
+    
+    # just a test
