@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>卷积码可视化模拟器</title>
+    <link rel="stylesheet" href="viterbi_style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>卷积码 (2,1,2) 可视化模拟器</h1>
+            <p>一个用于演示卷积码编码和维特比解码过程的交互式工具。</p>
+        </header>
+
+        <div class="main-content">
+            <div class="visualization-panel">
+                <div id="info-display">准备就绪...</div>
+                <svg id="trellis-diagram"></svg>
+            </div>
+
+            <div class="control-panel">
+                <div class="card">
+                    <h3>模式选择</h3>
+                    <div class="radio-group">
+                        <input type="radio" id="encoding-mode" name="mode" value="encoding" checked>
+                        <label for="encoding-mode">编码模式</label>
+                        <input type="radio" id="decoding-mode" name="mode" value="decoding">
+                        <label for="decoding-mode">解码模式</label>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>输入控制</h3>
+                    <div class="form-group">
+                        <label for="input-sequence">输入序列 (0和1):</label>
+                        <input type="text" id="input-sequence" value="10101">
+                    </div>
+                    <button id="start-button" class="btn btn-primary">开始编码</button>
+                </div>
+
+                <div class="card">
+                    <h3>编码结果与错误注入</h3>
+                    <div class="form-group">
+                        <label for="encoded-sequence">编码/接收序列:</label>
+                        <input type="text" id="encoded-sequence" readonly>
+                    </div>
+                    <div class="button-group">
+                        <button id="edit-button" class="btn btn-secondary">编辑序列</button>
+                        <button id="random-error-button" class="btn btn-warning">注入随机错误</button>
+                        <button id="clear-error-button" class="btn btn-danger">清除错误</button>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h3>图例</h3>
+                    <ul class="legend">
+                        <li><span class="color-box blue"></span> 输入 = 0</li>
+                        <li><span class="color-box red"></span> 输入 = 1</li>
+                        <li><span class="color-box green"></span> 当前/最优路径</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="viterbi_script.js"></script>
+</body>
+</html>

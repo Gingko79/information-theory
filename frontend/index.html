@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>通信系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#2563eb',
+                        secondary: '#10b981',
+                        danger: '#e74c3c',
+                        warning: '#f59e0b',
+                        dark: '#2c3e50',
+                        light: '#ecf0f1'
+                    },
+                }
+            }
+        }
+    </script>
+
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .status-info { background-color: #3498db; }
+            .status-success { background-color: #27ae60; }
+            .status-warning { background-color: #f39c12; }
+            .status-error { background-color: #e74c3c; }
+            .status-danger { background-color: #e74c3c; } /* 新增，和 error 同色 */
+        }
+        /* 调整页眉与文字对比，修复你看到的背景和文字同色问题 */
+        header { background-color: #1f2937; color: #ffffff; }
+        header p { color: #d1d5db; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans text-gray-800">
+    <header class="bg-dark text-white shadow-lg">
+        <div class="container mx-auto px-4 py-6">
+            <h1 class="text-3xl font-bold flex items-center">
+                <i class="fa fa-exchange mr-3"></i>通信系统
+            </h1>
+            <p class="text-gray-300 mt-1">高效可靠的文件传输与通信模拟平台</p>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+        <!-- 状态栏 -->
+        <div id="status-bar" class="mb-6 p-4 rounded-lg status-info text-white font-medium transition-all duration-300">
+            <i class="fa fa-info-circle mr-2"></i>
+            <span id="status-message">就绪</span>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- 发送端面板 -->
+            <div class="bg-white rounded-xl shadow-md overflow-hidden transition-transform hover:scale-[1.01]">
+                <div class="bg-primary text-white p-4">
+                    <h2 class="text-xl font-bold flex items-center">
+                        <i class="fa fa-paper-plane mr-2"></i>发送端
+                    </h2>
+                </div>
+
+                <div class="p-6 space-y-6">
+                    <!-- 连接设置 -->
+                    <div class="space-y-4">
+                        <h3 class="text-lg font-semibold text-gray-700 border-b pb-2">连接设置</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">接收端IP</label>
+                                <input type="text" id="sender-ip" placeholder="127.0.0.1"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50" value="127.0.0.1">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">端口</label>
+                                <input type="number" id="sender-port" min="1000" max="65535" value="6000"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            </div>
+                            <div class="flex items-end">
+                                <button id="sender-connect-btn"
+                                    class="w-full bg-primary hover:bg-primary/90 text-white font-medium py-2 px-4 rounded-md transition duration-200">
+                                    <i class="fa fa-connectdevelop mr-1"></i>连接
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 编码设置 -->
+                    <div class="space-y-4">
+                        <h3 class="text-lg font-semibold text-gray-700 border-b pb-2">编码设置</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">编码方法</label>
+                                <select id="encoding-method"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                    <option value="linear_7_4">linear_7_4 - (7,4)线性分组码</option>
+                                    <option value="linear_3_2">linear_3_2 - (3,2)线性分组码</option>
+                                    <option value="conv_7_4_3">conv_7_4_3 - (7,4,3)卷积码</option>
+                                    <option value="conv_2_1_2">conv_2_1_2 - (2,1,2)卷积码</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">误码率 ε</label>
+                                <input type="number" id="error-rate" min="0" max="0.5" step="0.001" value="0.1"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 文件选择 -->
+                    <div class="space-y-4">
+                        <h3 class="text-lg font-semibold text-gray-700 border-b pb-2">文件选择</h3>
+                        <div class="flex flex-col md:flex-row gap-3">
+                            <input type="text" id="file-path" placeholder="选择要发送的文件..." readonly
+                                class="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
+                            <label for="file-upload"
+                                class="bg-secondary hover:bg-secondary/90 text-white font-medium py-2 px-4 rounded-md transition duration-200 cursor-pointer text-center">
+                                <i class="fa fa-folder-open mr-1"></i>选择文件
+                            </label>
+                            <input id="file-upload" type="file" style="display: none;">
+                        </div>
+                        <div id="file-info" class="text-sm text-gray-500 italic">未选择文件</div>
+                    </div>
+
+                    <!-- 发送控制 -->
+                    <div class="space-y-4">
+                        <h3 class="text-lg font-semibold text-gray-700 border-b pb-2">发送控制</h3>
+                        <div class="flex flex-wrap gap-3">
+                            <button id="send-btn" disabled
+                                class="bg-danger hover:bg-danger/90 text-white font-medium py-2 px-6 rounded-md transition duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed">
+                                <i class="fa fa-send mr-1"></i>发送文件
+                            </button>
+                            <button id="cancel-send-btn" disabled
+                                class="bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-6 rounded-md transition duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed">
+                                <i class="fa fa-times mr-1"></i>取消发送
+                            </button>
+                        </div>
+
+                        <!-- 进度条 -->
+                        <div id="progress-container" class="hidden">
+                            <div class="flex justify-between text-sm mb-1">
+                                <span>发送进度</span>
+                                <span id="progress-percentage">0%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                <div id="progress-bar" class="bg-secondary h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 发送状态 -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-700 border-b pb-2">发送状态</h3>
+                        <div id="status-text" class="w-full h-32 bg-gray-50 border border-gray-300 rounded-md p-3 font-mono text-sm overflow-y-auto"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 接收端面板 -->
+            <div class="bg-white rounded-xl shadow-md overflow-hidden transition-transform hover:scale-[1.01]">
+                <div class="bg-secondary text-white p-4">
+                    <h2 class="text-xl font-bold flex items-center">
+                        <i class="fa fa-download mr-2"></i>接收端
+                    </h2>
+                </div>
+
+                <div class="p-6 space-y-6">
+                    <!-- 接收设置 -->
+                    <div class="space-y-4">
+                        <h3 class="text-lg font-semibold text-gray-700 border-b pb-2">接收设置</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">监听端口</label>
+                                <input type="number" id="receiver-port" min="1000" max="65535" value="6000"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-secondary/50">
+                            </div>
+                            <div class="flex items-end">
+                                <button id="receiver-connect-btn"
+                                    class="w-full bg-secondary hover:bg-secondary/90 text-white font-medium py-2 px-4 rounded-md transition duration-200">
+                                    <i class="fa fa-play mr-1"></i>启动接收
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <button id="request-retrans-btn" disabled
+                                class="w-full bg-warning hover:bg-warning/90 text-white font-medium py-2 px-4 rounded-md transition duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed">
+                                <i class="fa fa-refresh mr-1"></i>请求重传
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 保存设置 -->
+                    <div class="space-y-4">
+                        <h3 class="text-lg font-semibold text-gray-700 border-b pb-2">保存设置</h3>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">接收文件保存路径</label>
+                            <input type="text" id="save-path" value="{{ downloads_dir }}"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-secondary/50">
+                        </div>
+                    </div>
+
+                    <!-- 接收文件列表 -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-700 border-b pb-2">接收文件列表</h3>
+                        <div id="received-files" class="w-full max-h-40 bg-gray-50 border border-gray-300 rounded-md p-3 overflow-y-auto">
+                            <div class="text-gray-500 italic text-sm">暂无接收文件</div>
+                        </div>
+                    </div>
+
+                    <!-- 统计信息 -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-700 border-b pb-2">统计信息</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="bg-gray-50 p-3 rounded-md">
+                                <h4 class="font-medium text-gray-600 mb-2">发送端统计</h4>
+                                <div class="space-y-1 text-sm">
+                                    <div><span class="text-gray-500">已发送:</span> <span id="bytes-sent">0</span> 字节</div>
+                                    <div><span class="text-gray-500">消息数:</span> <span id="messages-sent">0</span></div>
+                                    <div><span class="text-gray-500">重传次数:</span> <span id="retrans-count">0</span></div>
+                                </div>
+                            </div>
+                            <div class="bg-gray-50 p-3 rounded-md">
+                                <h4 class="font-medium text-gray-600 mb-2">接收端统计</h4>
+                                <div class="space-y-1 text-sm">
+                                    <div><span class="text-gray-500">已接收:</span> <span id="bytes-received">0</span> 字节</div>
+                                    <div><span class="text-gray-500">消息数:</span> <span id="messages-received">0</span></div>
+                                    <div><span class="text-gray-500">检测错误:</span> <span id="errors-detected">0</span></div>
+                                </div>
+                            </div>
+                            <div class="bg-gray-50 p-3 rounded-md">
+                                <p class="text-sm text-gray-600">编码方式</p>
+                                <p id="current-encoding" class="font-mono text-lg">未设置</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 性能分析 -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-700 border-b pb-2">性能分析</h3>
+                        <div class="bg-gray-50 p-3 rounded-md h-48">
+                            <canvas id="performance-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-dark text-white mt-12 py-6">
+        <div class="container mx-auto px-4 text-center text-gray-300 text-sm">
+            <p>OKComputer 通信系统 &copy; 2023</p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap Toast 资源 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Toast 容器 -->
+    <div aria-live="polite" aria-atomic="true" class="position-fixed top-0 end-0 p-3" style="z-index: 2000;">
+      <div id="statusToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+          <strong class="me-auto" id="toastTitle">系统</strong>
+          <small class="text-muted" id="toastTime"></small>
+          <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="关闭"></button>
+        </div>
+        <div class="toast-body" id="toastBody">状态消息</div>
+      </div>
+    </div>
+
+    <script>
+        // 状态更新定时器
+        let statusUpdateInterval;
+
+        // 性能图表
+        let performanceChart;
+
+        // Toast 支持
+        let lastStatus = '';
+        const toastEl = document.getElementById('statusToast');
+        const toast = new bootstrap.Toast(toastEl, { delay: 5000 });
+
+        function showStatusToast(title, msg, level='info'){
+          document.getElementById('toastTitle').textContent = title || '系统';
+          document.getElementById('toastBody').textContent = msg || '';
+          document.getElementById('toastTime').textContent = new Date().toLocaleTimeString();
+
+          const header = toastEl.querySelector('.toast-header');
+          header.classList.remove('bg-success','bg-danger','bg-warning','bg-info','text-white');
+          if(level === 'success') header.classList.add('bg-success','text-white');
+          else if(level === 'danger') header.classList.add('bg-danger','text-white');
+          else if(level === 'warning') header.classList.add('bg-warning');
+          else header.classList.add('bg-info');
+
+          toast.show();
+        }
+
+        // DOM元素
+        const elements = {
+            statusBar: document.getElementById('status-bar'),
+            statusMessage: document.getElementById('status-message'),
+            senderConnectBtn: document.getElementById('sender-connect-btn'),
+            receiverConnectBtn: document.getElementById('receiver-connect-btn'),
+            sendBtn: document.getElementById('send-btn'),
+            cancelSendBtn: document.getElementById('cancel-send-btn'),
+            progressContainer: document.getElementById('progress-container'),
+            progressBar: document.getElementById('progress-bar'),
+            progressPercentage: document.getElementById('progress-percentage'),
+            statusText: document.getElementById('status-text'),
+            fileUpload: document.getElementById('file-upload'),
+            filePath: document.getElementById('file-path'),
+            fileInfo: document.getElementById('file-info'),
+            bytesSent: document.getElementById('bytes-sent'),
+            messagesSent: document.getElementById('messages-sent'),
+            retransCount: document.getElementById('retrans-count'),
+            bytesReceived: document.getElementById('bytes-received'),
+            messagesReceived: document.getElementById('messages-received'),
+            errorsDetected: document.getElementById('errors-detected'),
+            receivedFiles: document.getElementById('received-files'),
+            currentEncoding: document.getElementById('current-encoding'),
+            requestRetransBtn: document.getElementById('request-retrans-btn')
+        };
+
+        // 初始化性能图表
+        function initChart() {
+            const canvas = document.getElementById('performance-chart');
+            // 若 CDN 加载失败或离线，避免 Chart 未定义导致后续逻辑全部中断
+            if (!canvas || typeof Chart === 'undefined') {
+                console.warn('Chart.js 未加载，跳过性能图表初始化');
+                return;
+            }
+            const ctx = canvas.getContext('2d');
+            performanceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: '发送速率 (KB/s)',
+                            data: [],
+                            borderColor: '#3498db',
+                            backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                            tension: 0.3,
+                            fill: true
+                        },
+                        {
+                            label: '错误率 (%)',
+                            data: [],
+                            borderColor: '#e74c3c',
+                            backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                            tension: 0.3,
+                            fill: true,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '发送速率 (KB/s)'
+                            }
+                        },
+                        y1: {
+                            beginAtZero: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: '错误率 (%)'
+                            },
+                            grid: {
+                                drawOnChartArea: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 更新状态
+        function updateStatus(data) {
+            // 保存最新状态数据，供其他函数使用
+            window.lastStatusData = data;
+            
+            // 更新状态栏
+            elements.statusMessage.textContent = data.status;
+            elements.statusBar.className = `mb-6 p-4 rounded-lg text-white font-medium transition-all duration-300 status-${data.status_level}`;
+
+            // 只在重要状态变化时弹窗（错误和成功），其他信息只更新状态栏和日志
+            if (data.status && data.status !== lastStatus) {
+                lastStatus = data.status;
+                // 只在错误或成功时显示弹窗
+                if (data.status_level === 'danger' || data.status_level === 'success') {
+                    showStatusToast('系统消息', data.status, data.status_level || 'info');
+                }
+            }
+            
+            // 更新状态日志（从后端获取）
+            if (data.status_logs && Array.isArray(data.status_logs)) {
+                // statusText 是 div 元素，使用 textContent 获取当前内容
+                const currentText = elements.statusText.textContent || '';
+                const currentLogs = currentText.split('\n').filter(l => l.trim());
+                const newLogs = data.status_logs.filter(log => !currentLogs.includes(log));
+                if (newLogs.length > 0) {
+                    newLogs.forEach(log => {
+                        addStatusLog(log);
+                    });
+                }
+            }
+
+            // 如果后端提示存在待确认的重传请求，弹出确认
+            try {
+                if (data.pending_retrans && data.pending_retrans.ts) {
+                    if (window._lastPendingRetransTs !== data.pending_retrans.ts) {
+                        window._lastPendingRetransTs = data.pending_retrans.ts;
+                        const reason = data.pending_retrans.reason || 'CRC 校验失败';
+                        const ok = window.confirm(`${reason}\n是否请求发送端重传？`);
+                        if (ok) {
+                            fetch('/api/request_retransmission', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ reason })
+                            }).then(r => r.json()).then(res => {
+                                if (res && res.success) {
+                                    addStatusLog('已确认并请求发送端重传');
+                                    showStatusToast('接收端', '已请求发送端重传', 'warning');
+                                } else {
+                                    addStatusLog(`请求重传失败: ${(res && res.error) || '未知错误'}`);
+                                    showStatusToast('接收端', `请求重传失败: ${(res && res.error) || '未知错误'}`, 'danger');
+                                }
+                            }).catch(err => {
+                                console.error('请求重传失败:', err);
+                                addStatusLog(`请求重传时出错: ${err.message}`);
+                                showStatusToast('接收端', `请求重传时出错: ${err.message}`, 'danger');
+                            });
+                        } else {
+                            // 用户取消，不再重复提示（直到有新的ts）
+                            addStatusLog('已取消本次重传提示');
+                        }
+                    }
+                }
+            } catch (e) { console.warn('重传确认提示处理异常', e); }
+
+            // 连接按钮状态
+            elements.senderConnectBtn.textContent = data.sender_connected ? '断开连接' : '连接';
+            elements.senderConnectBtn.className = data.sender_connected
+    ? 'w-full bg-warning hover:bg-warning/90 text-white font-medium py-2 px-4 rounded-md transition duration-200'
+    : 'w-full bg-primary hover:bg-primary/90 text-white font-medium py-2 px-4 rounded-md transition duration-200';
+
+            // 接收端按钮状态
+            if (data.receiver_connected) {
+                elements.receiverConnectBtn.innerHTML = '<i class="fa fa-stop mr-1"></i>停止接收';
+                elements.receiverConnectBtn.className = 'w-full bg-warning hover:bg-warning/90 text-white font-medium py-2 px-4 rounded-md transition duration-200';
+                elements.receiverConnectBtn.disabled = false;
+                // 启用“请求重传”按钮
+                elements.requestRetransBtn.disabled = false;
+            } else {
+                elements.receiverConnectBtn.innerHTML = '<i class="fa fa-play mr-1"></i>启动接收';
+                elements.receiverConnectBtn.className = 'w-full bg-secondary hover:bg-secondary/90 text-white font-medium py-2 px-4 rounded-md transition duration-200';
+                elements.receiverConnectBtn.disabled = false;
+                // 禁用“请求重传”按钮
+                elements.requestRetransBtn.disabled = true;
+            }
+            
+            // 发送按钮状态（修复：必须有已上传的真实 filepath 才可发送）
+            const hasFilepath = elements.filePath && elements.filePath.dataset.filepath;
+            const shouldDisable = !data.sender_connected
+                || data.sending_in_progress
+                || !hasFilepath;
+            
+            elements.sendBtn.disabled = shouldDisable;
+            
+            // 调试信息（始终输出，帮助诊断问题）
+            console.log('发送按钮状态检查:', {
+                sender_connected: data.sender_connected,
+                sending_in_progress: data.sending_in_progress,
+                hasFilepath: !!hasFilepath,
+                filepath: hasFilepath || '未设置',
+                shouldDisable: shouldDisable,
+                buttonDisabled: elements.sendBtn.disabled
+            });
+
+            elements.cancelSendBtn.disabled = !data.sending_in_progress;
+
+            // 进度条
+            if (data.sending_in_progress || data.receiving_in_progress) {
+                elements.progressContainer.classList.remove('hidden');
+                elements.progressBar.style.width = `${data.progress}%`;
+                elements.progressPercentage.textContent = `${data.progress}%`;
+                document.querySelector('#progress-container .flex span:first-child').textContent =
+                    data.sending_in_progress ? '发送进度' : '接收进度';
+
+                if (data.progress % 10 === 0 && data.progress > 0) {
+                    addStatusLog(`${data.sending_in_progress ? '已发送' : '已接收'} ${data.progress}%`);
+                }
+            } else if (data.progress === 100) {
+                elements.progressContainer.classList.remove('hidden');
+                elements.progressBar.style.width = '100%';
+                elements.progressPercentage.textContent = '100%';
+                addStatusLog(`${data.sending_in_progress ? '文件发送完成' : '文件接收完成'}`);
+            } else if (data.progress > 0) {
+                elements.progressContainer.classList.add('hidden');
+            }
+
+            // 统计信息
+            elements.bytesSent.textContent = data.stats.bytes_sent;
+            elements.messagesSent.textContent = data.stats.messages_sent;
+            elements.retransCount.textContent = data.stats.retrans_count;
+            elements.bytesReceived.textContent = data.stats.bytes_received;
+            elements.messagesReceived.textContent = data.stats.messages_received;
+            elements.errorsDetected.textContent = data.stats.errors_detected;
+            elements.currentEncoding.textContent = data.encoding_method || '未设置';
+
+            // 接收文件列表
+            if (data.received_files && data.received_files.length > 0) {
+                const fileListEl = document.getElementById('received-files');
+                fileListEl.innerHTML = '';
+                data.received_files.forEach(file => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'flex justify-between items-center py-1 border-b last:border-0';
+                    fileItem.innerHTML = `
+                        <span>${file.filename}</span>
+                        <a href="/downloads/${encodeURIComponent(file.filename)}" class="text-primary hover:underline text-sm">
+                            <i class="fa fa-download mr-1"></i>下载
+                        </a>
+                    `;
+                    fileListEl.appendChild(fileItem);
+                });
+            }
+
+            // 更新性能图表
+            updateChart();
+
+            window.lastStatusData = data;
+        }
+
+        // 添加状态日志
+        function addStatusLog(message) {
+            // 如果消息已经包含时间戳，直接使用；否则添加时间戳
+            let logMessage = message;
+            if (!message.match(/^\[\d{2}:\d{2}:\d{2}\]/)) {
+                const timestamp = new Date().toLocaleTimeString();
+                logMessage = `[${timestamp}] ${message}`;
+            }
+            elements.statusText.innerHTML += logMessage + '\n';
+            elements.statusText.scrollTop = elements.statusText.scrollHeight;
+        }
+
+        // 定期获取状态更新（保留单通道轮询，避免重复轮询）
+        function startStatusUpdates() {
+            if (statusUpdateInterval) clearInterval(statusUpdateInterval);
+
+            statusUpdateInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/api/status');
+                    const data = await response.json();
+                    updateStatus(data);
+                } catch (error) {
+                    console.error('获取状态失败:', error);
+                }
+            }, 1000);
+        }
+
+        // 设置事件监听器
+        function setupEventListeners() {
+            // 发送端连接按钮
+            elements.senderConnectBtn.addEventListener('click', async () => {
+                const isConnected = elements.senderConnectBtn.textContent.includes('断开');
+                const ip = document.getElementById('sender-ip').value;
+                const port = document.getElementById('sender-port').value;
+                const encodingMethod = document.getElementById('encoding-method').value;
+
+                if (isConnected) {
+                    await fetch('/api/disconnect/sender', { method: 'POST' });
+                    addStatusLog('已断开发送端连接');
+                } else {
+                    if (!ip) {
+                        alert('请输入接收端IP');
+                        return;
+                    }
+                    await fetch('/api/connect/sender', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ip, port, encoding_method: encodingMethod })
+                    });
+                    addStatusLog(`已请求连接到 ${ip}:${port}，编码方式: ${encodingMethod}`);
+                }
+            });
+
+            // 接收端连接按钮
+            elements.receiverConnectBtn.addEventListener('click', async () => {
+                // 防止重复点击
+                if (elements.receiverConnectBtn.disabled) {
+                    console.log('接收端按钮已禁用，忽略点击');
+                    return;
+                }
+                
+                // 使用状态数据判断，而不是按钮文本（更可靠）
+                // 如果 lastStatusData 不存在，尝试从按钮文本判断（兼容初始化时的情况）
+                let isConnected = false;
+                if (window.lastStatusData && window.lastStatusData.hasOwnProperty('receiver_connected')) {
+                    isConnected = window.lastStatusData.receiver_connected;
+                } else {
+                    // 回退到按钮文本判断
+                    const btnText = elements.receiverConnectBtn.textContent || elements.receiverConnectBtn.innerText;
+                    isConnected = btnText.includes('停止') || btnText.includes('stop');
+                }
+                
+                const port = document.getElementById('receiver-port').value;
+                const encodingMethod = document.getElementById('encoding-method').value;
+
+                console.log('接收端按钮点击:', { isConnected, port, encodingMethod, lastStatusData: window.lastStatusData });
+
+                // 临时禁用按钮，防止重复点击
+                elements.receiverConnectBtn.disabled = true;
+
+                if (isConnected) {
+                    // 断开连接/停止监听
+                    console.log('正在停止接收...');
+                    try {
+                        const response = await fetch('/api/disconnect/receiver', { method: 'POST' });
+                        const result = await response.json();
+                        console.log('停止接收结果:', result);
+                        if (result.success) {
+                            addStatusLog('已停止接收监听');
+                            // 立即更新状态
+                            setTimeout(async () => {
+                                try {
+                                    const statusResponse = await fetch('/api/status');
+                                    const statusData = await statusResponse.json();
+                                    updateStatus(statusData);
+                                } catch (error) {
+                                    console.error('获取状态失败:', error);
+                                }
+                            }, 100);
+                        } else {
+                            addStatusLog(`停止接收失败: ${result.error || '未知错误'}`);
+                        }
+                    } catch (error) {
+                        console.error('停止接收错误:', error);
+                        addStatusLog(`停止接收时出错: ${error.message}`);
+                    } finally {
+                        // 恢复按钮状态
+                        setTimeout(() => {
+                            elements.receiverConnectBtn.disabled = false;
+                        }, 500);
+                    }
+                } else {
+                    // 启动接收
+                    console.log('正在启动接收...');
+                    try {
+                        const response = await fetch('/api/connect/receiver', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ port, encoding_method: encodingMethod })
+                        });
+                        const result = await response.json();
+                        console.log('启动接收结果:', result);
+                        if (result.success) {
+                            addStatusLog(`正在监听端口 ${port}，编码方式: ${encodingMethod}`);
+                            // 触发状态更新
+                            setTimeout(async () => {
+                                try {
+                                    const statusResponse = await fetch('/api/status');
+                                    const statusData = await statusResponse.json();
+                                    updateStatus(statusData);
+                                } catch (error) {
+                                    console.error('获取状态失败:', error);
+                                }
+                            }, 100);
+                        } else {
+                            addStatusLog(`启动接收失败: ${result.error || '未知错误'}`);
+                        }
+                    } catch (error) {
+                        console.error('启动接收错误:', error);
+                        addStatusLog(`启动接收时出错: ${error.message}`);
+                    } finally {
+                        // 恢复按钮状态
+                        setTimeout(() => {
+                            elements.receiverConnectBtn.disabled = false;
+                        }, 500);
+                    }
+                }
+            });
+
+            // 文件选择
+            elements.fileUpload.addEventListener('change', async (e) => {
+                if (e.target.files.length > 0) {
+                    const file = e.target.files[0];
+                    elements.filePath.value = file.name;
+
+                    // 上传文件
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    try {
+                        const response = await fetch('/api/upload', {
+                            method: 'POST',
+                            body: formData
+                        });
+
+                        const result = await response.json();
+                        if (result.success) {
+                            elements.filePath.dataset.filepath = result.filepath;
+
+                            let infoText = `文件大小: ${result.file_info.size || '未知'} 字节`;
+                            if (result.file_info.image_info) {
+                                infoText += `, 尺寸: ${result.file_info.image_info.width}x${result.file_info.image_info.height}`;
+                            }
+                            elements.fileInfo.textContent = infoText;
+
+                            // 上传成功后，立即触发一次状态更新，确保发送按钮可用性立即更新
+                            setTimeout(async () => {
+                                try {
+                                    const statusResponse = await fetch('/api/status');
+                                    const statusData = await statusResponse.json();
+                                    // 合并文件上传信息
+                                    statusData.status = '文件已上传';
+                                    statusData.status_level = 'success';
+                                    updateStatus(statusData);
+                                } catch (error) {
+                                    console.error('获取状态失败:', error);
+                                    // 如果获取状态失败，使用缓存的状态数据
+                                    if (window.lastStatusData) {
+                                        updateStatus({
+                                            ...window.lastStatusData,
+                                            status: '文件已上传',
+                                            status_level: 'success'
+                                        });
+                                    }
+                                }
+                            }, 100);
+
+                            addStatusLog(`已选择文件: ${file.name}`);
+                        } else {
+                            delete elements.filePath.dataset.filepath;
+                            alert(`上传失败: ${result.error}`);
+                        }
+                    } catch (error) {
+                        console.error('文件上传失败:', error);
+                        delete elements.filePath.dataset.filepath;
+                        alert('文件上传失败');
+                    }
+                }
+            });
+
+            // 发送按钮
+            elements.sendBtn.addEventListener('click', async () => {
+                console.log('发送按钮被点击');
+                
+                const filepath = elements.filePath && elements.filePath.dataset.filepath;
+                console.log('文件路径:', filepath);
+                
+                if (!filepath) {
+                    alert('请先选择并等待文件上传完成');
+                    return;
+                }
+
+                // 检查当前状态
+                const currentStatus = window.lastStatusData || {};
+                console.log('当前状态:', currentStatus);
+                
+                if (elements.sendBtn.disabled) {
+                    const reasons = [];
+                    if (!currentStatus.sender_connected) reasons.push('发送端未连接');
+                    if (currentStatus.sending_in_progress) reasons.push('正在发送中');
+                    if (!filepath) reasons.push('文件未上传');
+                    alert(`发送按钮当前不可用：\n${reasons.join('\n')}`);
+                    return;
+                }
+
+                const encodingMethod = document.getElementById('encoding-method').value;
+                const errorRateInput = document.getElementById('error-rate').value;
+                const errorRate = errorRateInput !== '' && !isNaN(parseFloat(errorRateInput)) 
+                    ? parseFloat(errorRateInput) 
+                    : 0.1;
+
+                console.log('发送参数:', { filepath, encodingMethod, errorRate });
+
+                try {
+                    const response = await fetch('/api/send', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            filepath,
+                            encoding_method: encodingMethod,
+                            error_rate: errorRate
+                        })
+                    });
+                    const result = await response.json();
+                    console.log('发送响应:', result);
+                    if (result.success) {
+                        addStatusLog(`已请求开始发送文件... (编码: ${encodingMethod}, 误码率: ${errorRate})`);
+                    } else {
+                        addStatusLog(`发送失败: ${result.error || '未知错误'}`);
+                        alert(`发送失败: ${result.error || '未知错误'}`);
+                    }
+                } catch (error) {
+                    console.error('发送错误:', error);
+                    addStatusLog(`发送时出错: ${error.message}`);
+                    alert(`发送时出错: ${error.message}`);
+                }
+            });
+
+            // 取消发送按钮
+            elements.cancelSendBtn.addEventListener('click', async () => {
+                if (confirm('确定要取消发送吗？')) {
+                    await fetch('/api/cancel_send', { method: 'POST' });
+                    addStatusLog('正在取消发送...');
+                }
+            });
+
+            // 请求重传按钮（接收端）
+            elements.requestRetransBtn.addEventListener('click', async () => {
+                try {
+                    elements.requestRetransBtn.disabled = true;
+                    const response = await fetch('/api/request_retransmission', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ reason: '用户手动触发' })
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        addStatusLog('已向发送端请求重传');
+                        showStatusToast('接收端', '已向发送端请求重传', 'warning');
+                    } else {
+                        addStatusLog(`请求重传失败: ${result.error || '未知错误'}`);
+                        showStatusToast('接收端', `请求重传失败: ${result.error || '未知错误'}`, 'danger');
+                    }
+                } catch (err) {
+                    console.error('请求重传失败:', err);
+                    addStatusLog(`请求重传时出错: ${err.message}`);
+                    showStatusToast('接收端', `请求重传时出错: ${err.message}`, 'danger');
+                } finally {
+                    // 恢复按钮，仅当接收端仍连接时
+                    setTimeout(() => {
+                        const data = window.lastStatusData || {};
+                        elements.requestRetransBtn.disabled = !data.receiver_connected;
+                    }, 300);
+                }
+            });
+        }
+
+        // 更新图表
+        function updateChart() {
+            if (!performanceChart) return;
+            const data = window.lastStatusData || {};
+            const history = data.performance_history || [];
+            performanceChart.data.labels = history.map(h => h.time || '');
+            performanceChart.data.datasets[0].data = history.map(h => h.speed || 0);
+            performanceChart.data.datasets[1].data = history.map(h => h.error_rate || 0);
+            performanceChart.update();
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            try { initChart(); } catch (e) { console.error('图表初始化失败:', e); }
+            try { setupEventListeners(); } catch (e) { console.error('事件绑定失败:', e); }
+            try { startStatusUpdates(); } catch (e) { console.error('状态轮询启动失败:', e); }
+            addStatusLog('系统就绪，等待操作...');
+        });
+
+        function downloadFile(filename) {
+            fetch(`/downloads/${filename}`)
+                .then(response => response.blob())
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                });
+        }
+
+        function updateReceivedFiles(files) {
+            const container = document.getElementById('received-files');
+            container.innerHTML = '';
+            files.forEach(f => {
+                const btn = document.createElement('button');
+                btn.textContent = `下载 ${f.filename}`;
+                btn.onclick = () => downloadFile(f.filename);
+                container.appendChild(btn);
+            });
+        }
+
+        function updateStats(stats) {
+            document.getElementById('bytes-sent').textContent = `已发送: ${stats.bytes_sent} 字节`;
+            document.getElementById('messages-sent').textContent = `消息数: ${stats.messages_sent}`;
+            document.getElementById('bytes-received').textContent = `已接收: ${stats.bytes_received} 字节`;
+            document.getElementById('messages-received').textContent = `消息数: ${stats.messages_received}`;
+            document.getElementById('errors-detected').textContent = `错误数: ${stats.errors_detected}`;
+        }
+        // 注意：移除了重复的 pollStatus 定时器，避免双重轮询导致的竞态
+    </script>
+</body>
+</html>
