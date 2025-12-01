@@ -179,6 +179,91 @@ class LinearBlockCode:
         return decoded_bits[:original_bit_count]
 
 
+class BCH157Code:
+    """(15,7) 二元 BCH 码，使用最近邻解码以支持最多 2 bit 纠错"""
+
+    def __init__(self):
+        self.n = 15
+        self.k = 7
+        # g(x) = x^8 + x^7 + x^6 + x^4 + 1 -> 0b111010001
+        self.generator = 0b111010001
+        self._codebook = self._precompute_codebook()
+
+    @staticmethod
+    def _bits_to_int(bits: np.ndarray) -> int:
+        val = 0
+        for b in bits:
+            val = (val << 1) | int(b & 1)
+        return val
+
+    @staticmethod
+    def _int_to_bits(value: int, length: int) -> np.ndarray:
+        return np.array([(value >> (length - 1 - i)) & 1 for i in range(length)], dtype=int)
+
+    def _mod_div(self, dividend: int) -> int:
+        """对二元多项式做模 2 除法，返回余数"""
+        divisor = self.generator
+        deg_divisor = divisor.bit_length() - 1
+        while dividend.bit_length() - 1 >= deg_divisor:
+            shift = dividend.bit_length() - 1 - deg_divisor
+            dividend ^= divisor << shift
+        return dividend
+
+    def encode_block(self, msg_bits: np.ndarray) -> np.ndarray:
+        """编码单个 7bit 分组"""
+        if len(msg_bits) != self.k:
+            raise ValueError("BCH(15,7) 需要 7 比特信息位")
+        msg_int = self._bits_to_int(msg_bits)
+        # 左移 n-k=8 位后求余数
+        dividend = msg_int << (self.n - self.k)
+        remainder = self._mod_div(dividend)
+        code_int = dividend | remainder
+        return self._int_to_bits(code_int, self.n)
+
+    def _precompute_codebook(self):
+        """生成所有 2^7 个合法码字，便于最近邻解码"""
+        table = []
+        for m in range(2 ** self.k):
+            bits = self._int_to_bits(m, self.k)
+            code = self.encode_block(bits)
+            table.append((bits, code))
+        return table
+
+    def encode(self, data_bits: np.ndarray) -> np.ndarray:
+        if len(data_bits) == 0:
+            return np.array([], dtype=int)
+        # padding 到 7 的倍数
+        if len(data_bits) % self.k != 0:
+            pad = self.k - (len(data_bits) % self.k)
+            data_bits = np.concatenate([data_bits, np.zeros(pad, dtype=int)])
+        groups = data_bits.reshape(-1, self.k)
+        out = np.zeros(groups.shape[0] * self.n, dtype=int)
+        for i, g in enumerate(groups):
+            out[i * self.n:(i + 1) * self.n] = self.encode_block(g)
+        return out
+
+    def decode(self, received_codewords: np.ndarray) -> np.ndarray:
+        """最近邻解码，纠错能力由码距保证（dmin=5，最多纠 2 bit）"""
+        if len(received_codewords) == 0:
+            return np.array([], dtype=int)
+        if len(received_codewords) % self.n != 0:
+            raise ValueError("接收到的码字长度不是15的倍数")
+        groups = received_codewords.reshape(-1, self.n)
+        decoded = []
+        for group in groups:
+            min_dist = float('inf')
+            best_bits = None
+            for info_bits, codeword in self._codebook:
+                dist = np.sum(group != codeword)
+                if dist < min_dist:
+                    min_dist = dist
+                    best_bits = info_bits
+                    if dist == 0:
+                        break
+            decoded.extend(best_bits.tolist())
+        return np.array(decoded, dtype=int)
+
+
 class ConvolutionalCode:
     """卷积码实现类"""
 
@@ -479,7 +564,8 @@ class ChannelEncoder:
             'linear_7_4': LinearBlockCode(7, 4),
             'linear_3_2': LinearBlockCode(3, 2),
             'conv_7_4_3': ConvolutionalCode(7, 4, 3),
-            'conv_2_1_2': ConvolutionalCode(2, 1, 2)
+            'conv_2_1_2': ConvolutionalCode(2, 1, 2),
+            'bch_15_7': BCH157Code()
         }
 
     def encode(self, data: bytes, method: str) -> np.ndarray:
